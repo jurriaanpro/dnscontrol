@@ -34,6 +34,7 @@ providers/joker @atrull
 providers/linode @koesie10
 providers/loopia @systemcrash
 providers/luadns @riku22
+providers/mijnhost @jurriaanpro
 providers/mythicbeasts @tomfitzhenry
 providers/namecheap @willpower232
 # providers/namedotcom NEEDS VOLUNTEER
