@@ -105,13 +105,56 @@ func (p *mijnhostProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, cu
 
 	fmt.Println("Zone update for %s\n%s", dc.Name, strings.Join(result.Msgs, "\n"))
 
-	return []*models.Correction{}, 0, nil
+	// convert result.DesignedPlus to mijn.host native records
+	corrections := make([]*models.Correction, 0)
+
+	// Create a correction for changes
+	correction := &models.Correction{
+		Msg: fmt.Sprintf("Update DNS records for %s", dc.Name),
+		F: func() error {
+			records := make([]map[string]interface{}, 0)
+
+			for _, r := range result.DesiredPlus {
+				record := map[string]interface{}{
+					"type":  r.Type,
+					"name":  r.GetLabelFQDN() + ".",
+					"value": r.GetTargetCombinedFunc(nil),
+					"ttl":   r.TTL,
+				}
+				records = append(records, record)
+			}
+
+			payload := map[string]interface{}{
+				"records": records,
+			}
+
+			body, _ := json.Marshal(payload)
+			fmt.Printf("Request body: %s\n", string(body))
+			httpClient := &http.Client{}
+			req, _ := http.NewRequest("PUT", "https://mijn.host/api/v2/domains/"+dc.Name+"/dns", strings.NewReader(string(body)))
+			req.Header.Add("API-Key", p.apiKey)
+			req.Header.Add("Content-Type", "application/json")
+
+			resp, err := httpClient.Do(req)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("failed to update records: %s", resp.Status)
+			}
+
+			return nil
+		},
+	}
+
+	corrections = append(corrections, correction)
+
+
+	return corrections, result.ActualChangeCount, nil
 }
 
 func (p *mijnhostProvider) GetNameservers(domain string) ([]*models.Nameserver, error) {
 	return []*models.Nameserver{}, nil
-}
-
-func (p *mijnhostProvider) GetDomainCorrections(dc *models.DomainConfig) ([]*models.Correction, error) {
-	return []*models.Correction{}, nil
 }
